@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: workouts
+    // Document ID: workoutId (Auto-generated)
+    // Fields:
+    //   - userId: string (required)
+    //   - dayId: string (required)
+    //   - title: string (required)
+    //   - timestamp: timestamp (required)
+    //   - exercises: list (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidWorkout(data) {
+      return data.keys().hasAll(['userId', 'dayId', 'title', 'timestamp', 'exercises']) &&
+             data.userId == request.auth.uid &&
+             data.dayId is string &&
+             data.title is string &&
+             data.timestamp is timestamp &&
+             data.exercises is list &&
+             data.exercises.size() <= 20; // Limit exercises per session
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false; // Profiles shouldn't be deleted easily
+    }
+
+    match /workouts/{workoutId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isValidWorkout(request.resource.data);
+      allow update: if isAuthenticated() && isDocOwner() && isValidWorkout(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && isDocOwner();
+    }
+  }
+}

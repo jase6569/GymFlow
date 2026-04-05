@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user settings and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "WorkoutSession": {
+      "title": "Workout Session",
+      "description": "A single logged workout session.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "dayId": { "type": "string" },
+        "title": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "exercises": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "exerciseId": { "type": "string" },
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["compound", "isolation"] },
+              "sets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "reps": { "type": "number" },
+                    "weight": { "type": "number" },
+                    "targetReps": { "type": "number" },
+                    "rpe": { "type": "number", "description": "Rate of Perceived Exertion (1-10)" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": ["userId", "dayId", "timestamp", "exercises"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/workouts/{workoutId}": {
+      "schema": "WorkoutSession",
+      "description": "Logged workout sessions."
+    }
+  }
+}
